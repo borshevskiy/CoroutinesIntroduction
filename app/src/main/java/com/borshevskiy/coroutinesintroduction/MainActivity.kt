@@ -2,9 +2,15 @@ package com.borshevskiy.coroutinesintroduction
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import com.borshevskiy.coroutinesintroduction.databinding.ActivityMainBinding
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -16,33 +22,77 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
         binding.buttonLoad.setOnClickListener {
-            loadData()
+//            lifecycleScope.launch {
+//                loadData()
+//            }
+            loadWithoutCoroutine()
         }
     }
 
-    private fun loadData() {
+    private suspend fun loadData() {
         binding.progress.isVisible = true
         binding.buttonLoad.isEnabled = false
         val city = loadCity()
+
         binding.tvLocation.text = city
         val temp = loadTemperature(city)
+
         binding.tvTemperature.text = temp.toString()
         binding.progress.isVisible = false
         binding.buttonLoad.isEnabled = true
     }
 
-    private fun loadCity(): String {
-        Thread.sleep(5000)
-        return "Moscow"
+    private fun loadWithoutCoroutine(step: Int = 0, obj: Any? = null) {
+        when (step) {
+            0 -> {
+                binding.progress.isVisible = true
+                binding.buttonLoad.isEnabled = false
+                loadCityWithoutCoroutine {
+                    loadWithoutCoroutine(1, it)
+                }
+            }
+            1 -> {
+                val city = obj as String
+                binding.tvLocation.text = city
+                loadTemperatureWithoutCoroutine(city) {
+                    loadWithoutCoroutine(2, it)
+                }
+            }
+            2 -> {
+                val temp = obj as Int
+                binding.tvTemperature.text = temp.toString()
+                binding.progress.isVisible = false
+                binding.buttonLoad.isEnabled = true
+            }
+        }
     }
 
-    private fun loadTemperature(city: String): Int {
+    private fun loadCityWithoutCoroutine(callback: (String) -> Unit) {
+        Handler(Looper.getMainLooper()).postDelayed({callback.invoke("Moscow")},5000)
+    }
+
+    private fun loadTemperatureWithoutCoroutine(city: String, callback: (Int) -> Unit) {
         Toast.makeText(
             this,
             getString(R.string.loading_temperature_toast, city),
             Toast.LENGTH_SHORT
         ).show()
-        Thread.sleep(5000)
+        Handler(Looper.getMainLooper()).postDelayed({ callback.invoke(17) }, 5000)
+    }
+
+    private suspend fun loadCity(): String {
+        delay(5000)
+        return "Moscow"
+
+    }
+
+    private suspend fun loadTemperature(city: String): Int {
+        Toast.makeText(
+            this,
+            getString(R.string.loading_temperature_toast, city),
+            Toast.LENGTH_SHORT
+        ).show()
+        delay(5000)
         return 17
     }
 }
